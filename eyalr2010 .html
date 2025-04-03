@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>כוכב אינטראקטיבי מתקדם</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+        
+        #myCanvas {
+            display: block;
+        }
+        
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 300px;
+        }
+        
+        .control-group {
+            margin-bottom: 10px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+        }
+        
+        button {
+            background: #4CAF50;
+            border: none;
+            color: white;
+            padding: 8px 15px;
+            margin: 5px 0;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .color-preview {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 1px solid white;
+            vertical-align: middle;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="myCanvas"></canvas>
+    
+    <div class="controls">
+        <h2>הגדרות כוכב</h2>
+        
+        <div class="control-group">
+            <label for="starPoints">מספר קודקודים: <span id="pointsValue">5</span></label>
+            <input type="range" id="starPoints" min="3" max="12" value="5">
+        </div>
+        
+        <div class="control-group">
+            <label for="particleSize">גודל חלקיקים: <span id="sizeValue">2</span></label>
+            <input type="range" id="particleSize" min="1" max="5" step="0.1" value="2">
+        </div>
+        
+        <div class="control-group">
+            <label for="mouseRadius">אזור השפעת עכבר: <span id="radiusValue">100</span></label>
+            <input type="range" id="mouseRadius" min="50" max="300" value="100">
+        </div>
+        
+        <div class="control-group">
+            <label for="bgColor">צבע רקע:
+                <input type="color" id="bgColor" value="#000000">
+                <span class="color-preview" id="bgPreview"></span>
+            </label>
+        </div>
+        
+        <div class="control-group">
+            <label for="starColor">צבע כוכב:
+                <input type="color" id="starColor" value="#ff9900">
+                <span class="color-preview" id="starPreview"></span>
+            </label>
+        </div>
+        
+        <button id="resetBtn">אתחול</button>
+        <button id="randomBtn">צבע אקראי</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // הגדרות ראשוניות
+        let config = {
+            starPoints: 5,
+            particleSize: 2,
+            mouseRadius: 100,
+            bgColor: '#000000',
+            starColor: '#ff9900',
+            particles: [],
+            mouse: {
+                x: canvas.width / 2,
+                y: canvas.height / 2
+            }
+        };
+        
+        // אלמנטים של ממשק המשתמש
+        const starPointsInput = document.getElementById('starPoints');
+        const pointsValue = document.getElementById('pointsValue');
+        const particleSizeInput = document.getElementById('particleSize');
+        const sizeValue = document.getElementById('sizeValue');
+        const mouseRadiusInput = document.getElementById('mouseRadius');
+        const radiusValue = document.getElementById('radiusValue');
+        const bgColorInput = document.getElementById('bgColor');
+        const bgPreview = document.getElementById('bgPreview');
+        const starColorInput = document.getElementById('starColor');
+        const starPreview = document.getElementById('starPreview');
+        const resetBtn = document.getElementById('resetBtn');
+        const randomBtn = document.getElementById('randomBtn');
+        
+        // עדכון תצוגה ראשונית
+        updateUI();
+        
+        // אירועי ממשק משתמש
+        starPointsInput.addEventListener('input', function() {
+            config.starPoints = parseInt(this.value);
+            pointsValue.textContent = this.value;
+            init();
+        });
+        
+        particleSizeInput.addEventListener('input', function() {
+            config.particleSize = parseFloat(this.value);
+            sizeValue.textContent = this.value;
+            init();
+        });
+        
+        mouseRadiusInput.addEventListener('input', function() {
+            config.mouseRadius = parseInt(this.value);
+            radiusValue.textContent = this.value;
+        });
+        
+        bgColorInput.addEventListener('input', function() {
+            config.bgColor = this.value;
+            bgPreview.style.backgroundColor = this.value;
+        });
+        
+        starColorInput.addEventListener('input', function() {
+            config.starColor = this.value;
+            starPreview.style.backgroundColor = this.value;
+            init();
+        });
+        
+        resetBtn.addEventListener('click', function() {
+            resetConfig();
+            updateUI();
+            init();
+        });
+        
+        randomBtn.addEventListener('click', function() {
+            config.starColor = getRandomColor();
+            starColorInput.value = config.starColor;
+            starPreview.style.backgroundColor = config.starColor;
+            init();
+        });
+        
+        // פונקציות עזר
+        function updateUI() {
+            starPointsInput.value = config.starPoints;
+            pointsValue.textContent = config.starPoints;
+            particleSizeInput.value = config.particleSize;
+            sizeValue.textContent = config.particleSize;
+            mouseRadiusInput.value = config.mouseRadius;
+            radiusValue.textContent = config.mouseRadius;
+            bgColorInput.value = config.bgColor;
+            bgPreview.style.backgroundColor = config.bgColor;
+            starColorInput.value = config.starColor;
+            starPreview.style.backgroundColor = config.starColor;
+        }
+        
+        function resetConfig() {
+            config = {
+                starPoints: 5,
+                particleSize: 2,
+                mouseRadius: 100,
+                bgColor: '#000000',
+                starColor: '#ff9900',
+                particles: [],
+                mouse: {
+                    x: canvas.width / 2,
+                    y: canvas.height / 2
+                }
+            };
+        }
+        
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+        
+        // מחלקת חלקיק
+        class Particle {
+            constructor(x, y, size, color) {
+                this.originalX = x;
+                this.originalY = y;
+                this.x = x;
+                this.y = y;
+                this.size = size;
+                this.color = color;
+                this.density = (Math.random() * 30) + 1;
+                this.ease = Math.random() * 0.05 + 0.01;
+                this.velocity = Math.random() * 0.2;
+                this.angle = Math.random() * Math.PI * 2;
+            }
+            
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.closePath();
+                ctx.fill();
+            }
+            
+            update() {
+                // חישוב מרחק מהעכבר
+                let dx = config.mouse.x - this.x;
+                let dy = config.mouse.y - this.y;
+                let distance = Math.sqrt(dx * dx + dy * dy);
+                
+                // כוח דחיפה/משיכה
+                if (distance < config.mouseRadius) {
+                    let forceDirectionX = dx / distance;
+                    let forceDirectionY = dy / distance;
+                    let force = (config.mouseRadius - distance) / config.mouseRadius;
+                    
+                    this.x += forceDirectionX * force * this.density * 0.5;
+                    this.y += forceDirectionY * force * this.density * 0.5;
+                } else {
+                    // תנועה חלקה בחזרה למיקום המקורי
+                    let dx = this.originalX - this.x;
+                    let dy = this.originalY - this.y;
+                    this.x += dx * this.ease;
+                    this.y += dy * this.ease;
+                }
+                
+                // תנועה עדינה בצורת ספירלה
+                this.angle += this.velocity;
+                let spiralRadius = 0.5;
+                this.x += Math.cos(this.angle) * spiralRadius;
+                this.y += Math.sin(this.angle) * spiralRadius;
+                
+                this.draw();
+            }
+        }
+        
+        // יצירת צורת כוכב
+        function init() {
+            config.particles = [];
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = Math.min(canvas.width, canvas.height) * 0.3;
+            const innerRadius = radius * 0.4;
+            
+            // יצירת נקודות הכוכב
+            for (let i = 0; i < config.starPoints * 2; i++) {
+                let angle = (i * Math.PI) / config.starPoints;
+                let r = i % 2 === 0 ? radius : innerRadius;
+                let x = centerX + Math.cos(angle) * r;
+                let y = centerY + Math.sin(angle) * r;
+                
+                // יצירת חלקיקים לאורך הקווים של הכוכב
+                for (let j = 0; j < 20; j++) {
+                    let progress = j / 20;
+                    let px = centerX + Math.cos(angle) * (r * progress);
+                    let py = centerY + Math.sin(angle) * (r * progress);
+                    
+                    // יצירת גרדיאנט צבע
+                    let rgb = hexToRgb(config.starColor);
+                    let brightness = 0.7 + (Math.random() * 0.3);
+                    let color = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${brightness})`;
+                    
+                    config.particles.push(new Particle(px, py, config.particleSize, color));
+                }
+            }
+            
+            // הוספת חלקיקים אקראיים ברקע
+            for (let i = 0; i < 200; i++) {
+                let x = Math.random() * canvas.width;
+                let y = Math.random() * canvas.height;
+                let size = Math.random() * (config.particleSize/2) + (config.particleSize/2);
+                let color = `rgba(255, 255, 255, ${Math.random() * 0.5 + 0.1})`;
+                config.particles.push(new Particle(x, y, size, color));
+            }
+        }
+        
+        function hexToRgb(hex) {
+            let r = 0, g = 0, b = 0;
+            if (hex.length == 4) {
+                r = parseInt(hex[1] + hex[1], 16);
+                g = parseInt(hex[2] + hex[2], 16);
+                b = parseInt(hex[3] + hex[3], 16);
+            } else if (hex.length == 7) {
+                r = parseInt(hex[1] + hex[2], 16);
+                g = parseInt(hex[3] + hex[4], 16);
+                b = parseInt(hex[5] + hex[6], 16);
+            }
+            return {r, g, b};
+        }
+        
+        // מעקב אחר תנועת עכבר
+        window.addEventListener('mousemove', function(event) {
+            config.mouse.x = event.clientX;
+            config.mouse.y = event.clientY;
+        });
+        
+        // התאמה לשינוי גודל החלון
+        window.addEventListener('resize', function() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            init();
+        });
+        
+        // אנימציה
+        function animate() {
+            requestAnimationFrame(animate);
+            ctx.fillStyle = config.bgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            for (let i = 0; i < config.particles.length; i++) {
+                config.particles[i].update();
+            }
+        }
+        
+        // אתחול ראשוני
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        init();
+        animate();
+    </script>
+</body>
+</html>
